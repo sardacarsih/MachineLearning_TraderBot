@@ -1,54 +1,56 @@
 # MachineLearning TraderBot
 
-MachineLearning TraderBot is a Python trading research and execution project
-for MetaTrader 5. It combines feature engineering, tree-based machine learning
-models, backtesting, paper trading, live execution controls, and a Flask
-dashboard for monitoring model and trading state.
+MachineLearning TraderBot adalah proyek riset dan eksekusi trading berbasis
+Python untuk MetaTrader 5. Proyek ini menggabungkan feature engineering,
+model machine learning berbasis tree, backtesting, paper trading, kontrol live
+trading, dan dashboard Flask untuk memantau status model serta aktivitas
+trading.
 
-The repository is prepared for GitHub with source code, tests, templates, and
-documentation only. Local credentials, datasets, logs, trained models,
-backtest output, reports, and databases are intentionally ignored.
+Repository ini disiapkan untuk GitHub dengan hanya menyertakan source code,
+tests, template, dan dokumentasi yang aman. Credential lokal, dataset, logs,
+model hasil training, output backtest, reports, dan database tidak ikut
+di-commit.
 
-## Features
+## Fitur Utama
 
-- Historical OHLCV loading from MT5 or CSV.
-- Technical feature engineering and triple-class trade labeling.
-- Model training with XGBoost, LightGBM, CatBoost, and comparative selection.
-- Event-driven historical backtesting with performance reports and charts.
-- Paper trading loop for real-time simulation without broker orders.
-- MT5 live trading integration with explicit safety gates.
-- Flask dashboard for context, config, logs, saved models, and control actions.
-- Tests for dashboard behavior, feature pipeline, currency risk, MT5 config,
-  order safety, and live trade analysis.
+- Load data historis OHLCV dari MT5 atau file CSV lokal.
+- Feature engineering indikator teknikal dan labeling sinyal tiga kelas.
+- Training model dengan XGBoost, LightGBM, CatBoost, dan proses perbandingan.
+- Backtesting historis event-driven dengan laporan performa dan chart.
+- Paper trading real-time tanpa mengirim order broker sungguhan.
+- Integrasi live trading MT5 dengan safety gate eksplisit.
+- Dashboard Flask untuk konteks, konfigurasi, logs, model tersimpan, dan kontrol proses.
+- Test suite untuk dashboard, feature pipeline, currency risk, config MT5,
+  order safety, dan analisis live trade.
 
-## Repository Layout
+## Struktur Repository
 
 ```text
-config/       Runtime settings and MT5 credential loading
-data/         Data loading, feature engineering, and labeling code
-models/       Model wrappers, training, and comparison utilities
-strategy/     Signal, risk, rules, and market filters
-mt5/          MT5 connector, account manager, order execution, paper DB
-backtest/     Backtester and performance code
-scripts/      CLI entry points for train, backtest, paper, live, analysis
-templates/    Dashboard UI template
+config/       Pengaturan runtime dan loader credential MT5
+data/         Data loader, feature engineering, dan labeling
+models/       Wrapper model, training, dan utility perbandingan model
+strategy/     Signal, risk manager, trading rules, dan market filters
+mt5/          Connector MT5, account manager, order executor, paper DB
+backtest/     Backtester dan perhitungan performa
+scripts/      Entry point CLI untuk train, backtest, paper, live, analysis
+templates/    Template UI dashboard
 tests/        Automated test suite
-utils/        Logging, dashboard helpers, banner, common utilities
+utils/        Logging, helper dashboard, banner, dan utility umum
 ```
 
-Generated folders such as `logs/`, `reports/`, `saved_models/`, and
-`catboost_info/` are local artifacts and are not committed. Market data files
-under `data/` and output files under `backtest/` are ignored while the Python
-source modules in those packages remain tracked.
+Folder hasil generate seperti `logs/`, `reports/`, `saved_models/`, dan
+`catboost_info/` bersifat lokal dan tidak di-commit. File data market di
+`data/` serta output backtest di `backtest/` juga di-ignore, sementara source
+Python di package tersebut tetap dilacak Git.
 
-## Requirements
+## Kebutuhan Sistem
 
-- Windows for MetaTrader 5 Python integration.
-- Python 3.10 or 3.11.
-- MetaTrader 5 desktop terminal.
-- Broker demo or live account for MT5 connectivity.
+- Windows, karena integrasi Python MetaTrader 5 membutuhkan MT5 desktop.
+- Python 3.10 atau 3.11.
+- MetaTrader 5 Desktop Terminal.
+- Akun broker demo atau live untuk koneksi MT5.
 
-## Setup
+## Instalasi
 
 ```powershell
 git clone https://github.com/sardacarsih/MachineLearning_TraderBot.git
@@ -58,18 +60,18 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-## Credentials
+## Konfigurasi Credential
 
-Copy the safe template and fill it locally:
+Salin template aman terlebih dahulu:
 
 ```powershell
 Copy-Item credentials.example.yaml credentials.yaml
 ```
 
-Keep live credentials out of Git. The `.gitignore` excludes
-`credentials*.yaml`, while allowing `credentials.example.yaml`.
+Jangan commit credential asli. `.gitignore` sudah mengecualikan
+`credentials*.yaml`, tetapi tetap mengizinkan `credentials.example.yaml`.
 
-Safe default:
+Default aman:
 
 ```yaml
 mt5:
@@ -81,10 +83,10 @@ mt5:
   trading_enabled: false
 ```
 
-For live trading, set the real MT5 values only in your local credential file.
-Use live mode only after paper testing and account verification.
+Untuk live trading, isi nilai MT5 asli hanya di file credential lokal Anda.
+Gunakan live mode hanya setelah paper testing dan verifikasi akun.
 
-You can also use environment variables supported by `config/mt5_config.py`:
+Environment variable yang juga didukung oleh `config/mt5_config.py`:
 
 ```text
 MT5_LOGIN
@@ -93,27 +95,27 @@ MT5_SERVER
 MT5_PATH
 ```
 
-## Usage
+## Cara Menjalankan
 
-Run commands through the unified entry point:
+Gunakan `main.py` sebagai entry point utama:
 
 ```powershell
 .\.venv\Scripts\python.exe main.py [train | backtest | compare | live | paper | analyze-live] --help
 ```
 
-### Train Models
+### Training Model
 
 ```powershell
 .\.venv\Scripts\python.exe main.py train --symbol XAUUSD --timeframe M5 --months 12 --walk-forward --tune
 ```
 
-Train from a local CSV:
+Training dari CSV lokal:
 
 ```powershell
 .\.venv\Scripts\python.exe main.py train --symbol XAUUSD --timeframe M5 --csv data\XAUUSD\M5\xauusd_m5_12m.csv --models xgboost lightgbm catboost
 ```
 
-### Compare Timeframes
+### Membandingkan Timeframe
 
 ```powershell
 .\.venv\Scripts\python.exe main.py compare --symbol XAUUSD --timeframes M1 M5 M15 --months 12 --strategy-mode hybrid
@@ -137,23 +139,24 @@ Train from a local CSV:
 .\.venv\Scripts\python.exe main.py live --symbol XAUUSD --timeframe M5 --model saved_models\XAUUSD\M5\selected_catboost_model --config credentials.yaml --live
 ```
 
-Live trading can place real orders when the local credential file enables it:
+Live trading dapat mengirim order sungguhan jika file credential lokal
+mengaktifkan konfigurasi berikut:
 
 ```yaml
 paper_trading: false
 trading_enabled: true
 ```
 
-Review the account, symbol mapping, lot size, and risk settings before using
-real funds.
+Sebelum memakai dana real, pastikan akun, mapping symbol, lot size, dan risk
+setting sudah diverifikasi.
 
-### Analyze Trading Logs
+### Analisis Log Trading
 
 ```powershell
 .\.venv\Scripts\python.exe main.py analyze-live --symbol XAUUSD --timeframe M5 --start-date 20260604 --end-date 20260604
 ```
 
-Include MT5 deal history when credentials are configured:
+Gunakan deal history MT5 jika credential sudah dikonfigurasi:
 
 ```powershell
 .\.venv\Scripts\python.exe main.py analyze-live --symbol XAUUSD --timeframe M5 --mt5-history --history-days 1 --config credentials.yaml
@@ -165,42 +168,42 @@ Include MT5 deal history when credentials are configured:
 .\.venv\Scripts\python.exe dashboard.py
 ```
 
-Then open the local Flask URL printed by the process.
+Setelah proses berjalan, buka URL Flask lokal yang muncul di terminal.
 
-## Tests
+## Testing
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-If the virtual environment is not active:
+Jika virtual environment tidak aktif:
 
 ```powershell
 python -m pytest
 ```
 
-## Artifact Policy
+## Kebijakan Artifact
 
-The following are intentionally local-only:
+File dan folder berikut sengaja dibuat lokal saja:
 
-- Real broker credentials and `.env` files.
-- Market data snapshots and CSV caches.
-- Trained model binaries and serialized model files.
-- Logs, reports, paper trading databases, and backtest output.
-- CatBoost training metadata and Python caches.
+- Credential broker asli dan file `.env`.
+- Snapshot data market dan cache CSV.
+- Binary model hasil training dan file model serialized.
+- Logs, reports, database paper trading, dan output backtest.
+- Metadata training CatBoost dan cache Python.
 
-This keeps the GitHub repository small, reproducible, and safer to share.
-Regenerate artifacts by running the training, backtest, paper, live, or
-analysis commands in your local environment.
+Kebijakan ini menjaga repository tetap ringan, reproducible, dan lebih aman
+untuk dibagikan. Artifact dapat dibuat ulang dengan menjalankan command
+training, backtest, paper, live, atau analysis di environment lokal.
 
-## Risk Disclaimer
+## Disclaimer Risiko
 
-This project is for educational and research purposes only. Algorithmic
-trading involves high leverage and a significant risk of capital loss. Past
-performance does not guarantee future results. Do not trade money you cannot
-afford to lose. The authors are not responsible for losses incurred by using
-this software.
+Proyek ini dibuat untuk tujuan edukasi dan riset. Algorithmic trading memiliki
+risiko kerugian modal yang signifikan, terutama saat menggunakan leverage.
+Performa masa lalu tidak menjamin hasil di masa depan. Jangan trading dengan
+dana yang tidak siap Anda tanggung kerugiannya. Pengembang tidak bertanggung
+jawab atas kerugian finansial akibat penggunaan software ini.
 
-## License
+## Lisensi
 
-MIT License. See [LICENSE](LICENSE).
+MIT License. Lihat [LICENSE](LICENSE).
