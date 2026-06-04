@@ -1,0 +1,1409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ML Trading Engine Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg: #080b0f;
+            --panel: #10161d;
+            --panel-2: #141b23;
+            --panel-3: #18212b;
+            --line: #26313d;
+            --line-strong: #394757;
+            --text: #e6edf3;
+            --muted: #8b98a5;
+            --soft: #b8c2cc;
+            --green: #22c55e;
+            --red: #ef4444;
+            --amber: #f59e0b;
+            --blue: #38bdf8;
+            --violet: #a78bfa;
+            --font: "IBM Plex Sans", sans-serif;
+            --mono: "IBM Plex Mono", monospace;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background:
+                linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px),
+                var(--bg);
+            background-size: 32px 32px;
+            color: var(--text);
+            font-family: var(--font);
+            font-size: 14px;
+            letter-spacing: 0;
+        }
+
+        button, input, select { font: inherit; }
+        button { cursor: pointer; }
+
+        .shell {
+            display: grid;
+            grid-template-columns: 248px minmax(0, 1fr);
+            min-height: 100vh;
+        }
+
+        aside {
+            border-right: 1px solid var(--line);
+            background: rgba(11, 16, 22, 0.95);
+            padding: 18px;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .brand {
+            border: 1px solid var(--line);
+            background: var(--panel);
+            padding: 14px;
+            border-radius: 8px;
+        }
+
+        .brand-mark {
+            width: 36px;
+            height: 36px;
+            display: grid;
+            place-items: center;
+            border: 1px solid var(--line-strong);
+            background: #0b1218;
+            color: var(--blue);
+            font-family: var(--mono);
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .brand h1 {
+            margin: 0;
+            font-size: 15px;
+            line-height: 1.2;
+        }
+
+        .brand p {
+            margin: 4px 0 0;
+            color: var(--muted);
+            font-family: var(--mono);
+            font-size: 11px;
+        }
+
+        .nav {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .nav button {
+            width: 100%;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            background: transparent;
+            color: var(--soft);
+            padding: 9px 10px;
+            text-align: left;
+        }
+
+        .nav button:hover,
+        .nav button.active {
+            border-color: var(--line-strong);
+            background: var(--panel-2);
+            color: var(--text);
+        }
+
+        .nav button.active {
+            box-shadow: inset 3px 0 0 var(--blue);
+        }
+
+        .side-status {
+            margin-top: auto;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: var(--panel);
+            padding: 12px;
+            display: grid;
+            gap: 9px;
+            font-family: var(--mono);
+            font-size: 12px;
+        }
+
+        .pair {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .pair span:first-child { color: var(--muted); }
+        .pair span:last-child { color: var(--text); text-align: right; }
+
+        main {
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            border-bottom: 1px solid var(--line);
+            background: rgba(8, 11, 15, 0.92);
+            position: sticky;
+            top: 0;
+            z-index: 5;
+            padding: 14px 20px;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .mobile-nav {
+            display: none;
+            border-bottom: 1px solid var(--line);
+            background: var(--panel);
+            overflow-x: auto;
+            padding: 8px;
+            gap: 8px;
+        }
+
+        .mobile-nav button {
+            flex: 0 0 auto;
+            min-height: 36px;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            background: var(--panel-2);
+            color: var(--soft);
+            padding: 8px 10px;
+        }
+
+        .mobile-nav button.active { color: var(--text); border-color: var(--blue); }
+
+        .header-title h2 {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .header-title p {
+            margin: 3px 0 0;
+            color: var(--muted);
+            font-family: var(--mono);
+            font-size: 12px;
+        }
+
+        .toolbar {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .field {
+            display: grid;
+            gap: 4px;
+        }
+
+        .field label {
+            color: var(--muted);
+            font-family: var(--mono);
+            font-size: 10px;
+            text-transform: uppercase;
+        }
+
+        select,
+        input {
+            min-height: 36px;
+            border: 1px solid var(--line-strong);
+            border-radius: 6px;
+            background: #0b1016;
+            color: var(--text);
+            padding: 7px 10px;
+            outline: none;
+        }
+
+        select:focus,
+        input:focus { border-color: var(--blue); }
+
+        .status-badge {
+            min-height: 36px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid var(--line);
+            background: var(--panel);
+            border-radius: 6px;
+            padding: 8px 10px;
+            font-family: var(--mono);
+            font-size: 12px;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 99px;
+            background: var(--green);
+            box-shadow: 0 0 12px rgba(34, 197, 94, 0.45);
+        }
+
+        .dot.busy {
+            background: var(--amber);
+            box-shadow: 0 0 12px rgba(245, 158, 11, 0.5);
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink { 50% { opacity: 0.35; } }
+
+        .content {
+            padding: 18px 20px 28px;
+        }
+
+        .view { display: none; }
+        .view.active { display: block; }
+
+        .grid {
+            display: grid;
+            gap: 12px;
+        }
+
+        .kpi-grid {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            margin-bottom: 12px;
+        }
+
+        .panel {
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: rgba(16, 22, 29, 0.96);
+            overflow: hidden;
+        }
+
+        .panel.pad { padding: 14px; }
+
+        .panel-head {
+            min-height: 42px;
+            border-bottom: 1px solid var(--line);
+            background: var(--panel-2);
+            padding: 10px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .panel-title {
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .meta {
+            color: var(--muted);
+            font-family: var(--mono);
+            font-size: 11px;
+        }
+
+        .kpi {
+            padding: 13px;
+            border-top: 3px solid var(--line-strong);
+            min-height: 104px;
+        }
+
+        .kpi.good { border-top-color: var(--green); }
+        .kpi.risk { border-top-color: var(--red); }
+        .kpi.info { border-top-color: var(--blue); }
+        .kpi.warn { border-top-color: var(--amber); }
+
+        .kpi label {
+            display: block;
+            color: var(--muted);
+            font-family: var(--mono);
+            font-size: 11px;
+            text-transform: uppercase;
+            margin-bottom: 9px;
+        }
+
+        .kpi strong {
+            display: block;
+            font-family: var(--mono);
+            font-size: clamp(20px, 2.2vw, 28px);
+            line-height: 1.1;
+            overflow-wrap: anywhere;
+        }
+
+        .overview-grid {
+            grid-template-columns: minmax(0, 1.65fr) minmax(340px, 0.8fr);
+        }
+
+        .chart-stage {
+            min-height: 442px;
+            display: grid;
+            place-items: center;
+            background: #0a0f14;
+            padding: 12px;
+            position: relative;
+        }
+
+        .chart-stage img {
+            max-width: 100%;
+            max-height: 420px;
+            object-fit: contain;
+            border-radius: 4px;
+            cursor: zoom-in;
+        }
+
+        .empty {
+            color: var(--muted);
+            font-family: var(--mono);
+            text-align: center;
+            padding: 28px;
+        }
+
+        .icon-btn,
+        .action-btn {
+            min-height: 34px;
+            border: 1px solid var(--line-strong);
+            border-radius: 6px;
+            background: var(--panel-3);
+            color: var(--text);
+            padding: 7px 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .icon-btn:hover,
+        .action-btn:hover { border-color: var(--blue); }
+
+        .action-btn.primary { background: #0f2f3d; border-color: #22647f; }
+        .action-btn.danger { background: #3a1216; border-color: #7f1d1d; }
+        .action-btn.live { background: #4a1a11; border-color: #b45309; }
+
+        .details {
+            display: grid;
+            gap: 2px;
+            padding: 10px 12px 12px;
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 14px;
+            align-items: center;
+            padding: 9px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .row:last-child { border-bottom: 0; }
+        .row span:first-child { color: var(--muted); }
+        .row span:last-child { font-family: var(--mono); text-align: right; overflow-wrap: anywhere; }
+
+        .models-grid {
+            grid-template-columns: repeat(auto-fit, minmax(245px, 1fr));
+        }
+
+        .model-card {
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: var(--panel);
+            padding: 12px;
+        }
+
+        .model-card h3 {
+            margin: 0 0 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            font-size: 15px;
+        }
+
+        .tag {
+            border: 1px solid var(--line-strong);
+            border-radius: 4px;
+            padding: 3px 6px;
+            color: var(--muted);
+            font-family: var(--mono);
+            font-size: 10px;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .tag.rec { color: var(--green); border-color: var(--green); }
+        .tag.warn { color: var(--amber); border-color: var(--amber); }
+
+        .metric {
+            display: grid;
+            gap: 4px;
+            margin-top: 9px;
+        }
+
+        .metric div:first-child {
+            display: flex;
+            justify-content: space-between;
+            color: var(--soft);
+            font-family: var(--mono);
+            font-size: 12px;
+        }
+
+        .bar {
+            height: 6px;
+            background: #0a0f14;
+            border-radius: 99px;
+            overflow: hidden;
+        }
+
+        .bar > span {
+            display: block;
+            height: 100%;
+            width: 0;
+            background: var(--blue);
+        }
+
+        .config-grid {
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        }
+
+        .logs-layout {
+            height: calc(100vh - 146px);
+            display: grid;
+            grid-template-rows: auto minmax(0, 1fr);
+            gap: 12px;
+        }
+
+        .log-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .log-tabs button.active,
+        .toggle.active { border-color: var(--blue); color: var(--blue); }
+
+        .terminal {
+            height: 100%;
+            overflow: auto;
+            background: #05080c;
+            padding: 14px;
+            font-family: var(--mono);
+            font-size: 12px;
+            line-height: 1.45;
+            color: #93c5fd;
+        }
+
+        .terminal-line {
+            white-space: pre-wrap;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+            padding: 2px 0;
+        }
+
+        .terminal-line.error { color: #fca5a5; }
+        .terminal-line.warning { color: #fcd34d; }
+        .terminal-line.trade { color: #86efac; }
+        .terminal-line.signal { color: #c4b5fd; }
+
+        .control-grid {
+            grid-template-columns: minmax(320px, 0.6fr) minmax(0, 1.4fr);
+            height: calc(100vh - 146px);
+        }
+
+        .control-form-panel {
+            min-height: 0;
+            overflow: auto;
+        }
+
+        .form-stack {
+            display: grid;
+            gap: 12px;
+        }
+
+        .form-row {
+            display: grid;
+            gap: 5px;
+        }
+
+        .form-row label {
+            color: var(--muted);
+            font-family: var(--mono);
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+
+        .option-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+        }
+
+        .check-tile {
+            min-height: 36px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            background: #0b1117;
+            padding: 8px 10px;
+            color: var(--soft);
+            font-family: var(--mono);
+            font-size: 12px;
+        }
+
+        .check-tile input {
+            width: 15px;
+            height: 15px;
+            accent-color: var(--blue);
+        }
+
+        .split-fields {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .command-preview {
+            min-height: 72px;
+            max-height: 148px;
+            overflow: auto;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            background: #05080c;
+            padding: 10px;
+            color: #93c5fd;
+            font-family: var(--mono);
+            font-size: 11px;
+            line-height: 1.45;
+        }
+
+        .action-footer {
+            position: sticky;
+            bottom: -14px;
+            z-index: 2;
+            display: grid;
+            gap: 8px;
+            margin: 2px -14px -14px;
+            padding: 12px 14px 14px;
+            border-top: 1px solid var(--line);
+            background: rgba(16, 22, 29, 0.98);
+        }
+
+        .console {
+            min-height: 0;
+            display: grid;
+            grid-template-rows: auto minmax(0, 1fr);
+        }
+
+        .good-text { color: var(--green); }
+        .bad-text { color: var(--red); }
+        .warn-text { color: var(--amber); }
+        .info-text { color: var(--blue); }
+
+        @media (max-width: 1080px) {
+            .shell { grid-template-columns: 1fr; }
+            aside { display: none; }
+            .mobile-nav { display: flex; }
+            header { grid-template-columns: 1fr; }
+            .toolbar { justify-content: flex-start; }
+            .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .overview-grid,
+            .control-grid { grid-template-columns: 1fr; height: auto; }
+            .logs-layout { height: calc(100vh - 210px); }
+        }
+
+        @media (max-width: 560px) {
+            .content { padding: 12px; }
+            header { padding: 12px; }
+            .kpi-grid { grid-template-columns: 1fr; }
+            .toolbar,
+            .field,
+            select,
+            input { width: 100%; }
+            .option-grid,
+            .split-fields { grid-template-columns: 1fr; }
+            .chart-stage { min-height: 300px; }
+            .chart-stage img { max-height: 280px; }
+            .panel-head { align-items: flex-start; flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <aside>
+            <section class="brand">
+                <div class="brand-mark">ML</div>
+                <h1>Trading Engine</h1>
+                <p>terminal dashboard</p>
+            </section>
+
+            <nav class="nav" id="side-nav">
+                <button class="active" data-tab="overview"><i class="fa-solid fa-chart-line"></i> Overview</button>
+                <button data-tab="models"><i class="fa-solid fa-brain"></i> Model Comparison</button>
+                <button data-tab="config"><i class="fa-solid fa-sliders"></i> Configurations</button>
+                <button data-tab="logs"><i class="fa-solid fa-list-check"></i> Live Monitors</button>
+                <button data-tab="control"><i class="fa-solid fa-terminal"></i> Control Panel</button>
+            </nav>
+
+            <section class="side-status">
+                <div class="pair"><span>Time</span><span id="sys-time">--:--:--</span></div>
+                <div class="pair"><span>Mode</span><span id="sys-mode">Loading</span></div>
+                <div class="pair"><span>Context</span><span id="side-context">XAUUSD/M5</span></div>
+            </section>
+        </aside>
+
+        <main>
+            <nav class="mobile-nav" id="mobile-nav">
+                <button class="active" data-tab="overview">Overview</button>
+                <button data-tab="models">Models</button>
+                <button data-tab="config">Config</button>
+                <button data-tab="logs">Logs</button>
+                <button data-tab="control">Control</button>
+            </nav>
+
+            <header>
+                <div class="header-title">
+                    <h2 id="view-title">Performance Overview</h2>
+                    <p id="view-subtitle">Selected context: XAUUSD / M5</p>
+                </div>
+                <div class="toolbar">
+                    <div class="field">
+                        <label for="context-select">Result Context</label>
+                        <select id="context-select"></select>
+                    </div>
+                    <div class="status-badge">
+                        <span class="dot" id="bot-status-dot"></span>
+                        <span id="bot-status-text">Bot: Idle</span>
+                    </div>
+                </div>
+            </header>
+
+            <section class="content">
+                <section class="view active" id="view-overview">
+                    <div class="grid kpi-grid">
+                        <div class="panel kpi good"><label>Net Profit</label><strong id="kpi-net-profit">$0.00</strong></div>
+                        <div class="panel kpi info"><label>Win Rate</label><strong id="kpi-winrate">0.00%</strong></div>
+                        <div class="panel kpi risk"><label>Max Drawdown</label><strong id="kpi-drawdown">0.00%</strong></div>
+                        <div class="panel kpi warn"><label>Sharpe Ratio</label><strong id="kpi-sharpe">0.00</strong></div>
+                    </div>
+
+                    <div class="grid overview-grid">
+                        <div class="panel">
+                            <div class="panel-head">
+                                <div>
+                                    <div class="panel-title"><i class="fa-solid fa-chart-simple info-text"></i><span id="chart-title">Strategy Equity Growth</span></div>
+                                    <div class="meta" id="chart-meta">Loading chart metadata</div>
+                                </div>
+                                <div>
+                                    <button class="icon-btn" id="prev-chart" title="Previous chart"><i class="fa-solid fa-chevron-left"></i></button>
+                                    <button class="icon-btn" id="next-chart" title="Next chart"><i class="fa-solid fa-chevron-right"></i></button>
+                                </div>
+                            </div>
+                            <div class="chart-stage" id="chart-stage">
+                                <img id="carousel-img" alt="Backtest chart">
+                            </div>
+                        </div>
+
+                        <div class="panel">
+                            <div class="panel-head">
+                                <div class="panel-title"><i class="fa-solid fa-list-check info-text"></i> Backtest Summary</div>
+                                <div class="meta" id="summary-source">No report loaded</div>
+                            </div>
+                            <div class="details" id="summary-details">
+                                <div class="empty">Loading performance report...</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="view" id="view-models">
+                    <div class="panel pad" style="margin-bottom:12px;">
+                        <div class="row">
+                            <span>Recommended Deployment Model</span>
+                            <span id="rec-model-name" class="good-text">Unknown</span>
+                        </div>
+                        <div class="row">
+                            <span>Model Report</span>
+                            <span id="models-source">No report loaded</span>
+                        </div>
+                    </div>
+                    <div class="grid models-grid" id="models-list-grid"></div>
+                </section>
+
+                <section class="view" id="view-config">
+                    <div class="grid config-grid" id="config-settings-grid"></div>
+                </section>
+
+                <section class="view" id="view-logs">
+                    <div class="logs-layout">
+                        <div class="panel pad">
+                            <div class="toolbar" style="justify-content:space-between;">
+                                <div class="log-tabs">
+                                    <button class="action-btn active" data-log="main">Application</button>
+                                    <button class="action-btn" data-log="signals">Signals</button>
+                                    <button class="action-btn" data-log="trades">Trades</button>
+                                    <button class="action-btn" data-log="errors">Errors</button>
+                                </div>
+                                <div class="toolbar">
+                                    <input id="log-search-input" type="search" placeholder="Filter log text">
+                                    <button class="action-btn toggle active" id="log-scroll-btn"><i class="fa-solid fa-down-to-line"></i> Auto</button>
+                                    <button class="icon-btn" id="refresh-log" title="Refresh log"><i class="fa-solid fa-rotate"></i></button>
+                                </div>
+                            </div>
+                            <div class="meta" id="log-source" style="margin-top:10px;">No log loaded</div>
+                        </div>
+                        <div class="panel terminal" id="terminal-screen">
+                            <div class="terminal-line">Connecting to log stream...</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="view" id="view-control">
+                    <div class="grid control-grid">
+                        <div class="panel pad control-form-panel">
+                            <div class="panel-title" style="margin-bottom:14px;"><i class="fa-solid fa-gears info-text"></i> Action Control Center</div>
+                            <div class="form-stack">
+                                <div class="form-row">
+                                    <label for="select-action-type">Execution Task</label>
+                                    <select id="select-action-type">
+                                        <option value="train">Train Models Pipeline</option>
+                                        <option value="compare">Compare Selected Timeframe</option>
+                                        <option value="backtest">Run Historical Backtest</option>
+                                        <option value="paper">Launch Paper Trading</option>
+                                        <option value="live">Launch Live Trading (Real Funds)</option>
+                                    </select>
+                                </div>
+                                <div class="form-row">
+                                    <label for="input-target-symbol">Target Symbol</label>
+                                    <input type="text" id="input-target-symbol" value="XAUUSD" placeholder="XAUUSD">
+                                </div>
+                                <div class="form-row" id="group-select-timeframe">
+                                    <label for="select-timeframe">Timeframe</label>
+                                    <select id="select-timeframe">
+                                        <option value="M1">M1</option>
+                                        <option value="M5" selected>M5</option>
+                                        <option value="M15">M15</option>
+                                        <option value="M30">M30</option>
+                                        <option value="H1">H1</option>
+                                        <option value="H4">H4</option>
+                                        <option value="D1">D1</option>
+                                    </select>
+                                </div>
+                                <div class="form-row" id="group-select-model">
+                                    <label for="select-target-model">Target Model</label>
+                                    <select id="select-target-model"></select>
+                                </div>
+                                <div class="form-row" id="group-strategy-mode">
+                                    <label for="select-strategy-mode">Strategy Mode</label>
+                                    <select id="select-strategy-mode">
+                                        <option value="hybrid" selected>Hybrid</option>
+                                        <option value="ml">Pure ML + Safety</option>
+                                    </select>
+                                </div>
+                                <div class="form-row" id="group-select-months">
+                                    <label for="input-months-range">Historical Range</label>
+                                    <select id="input-months-range">
+                                        <option value="3">3 Months</option>
+                                        <option value="6" selected>6 Months</option>
+                                        <option value="12">12 Months</option>
+                                    </select>
+                                </div>
+                                <div class="form-row" id="group-model-keys">
+                                    <label>Models</label>
+                                    <div class="option-grid">
+                                        <label class="check-tile"><input type="checkbox" name="model-key" value="xgboost" checked> XGBoost</label>
+                                        <label class="check-tile"><input type="checkbox" name="model-key" value="lightgbm" checked> LightGBM</label>
+                                        <label class="check-tile"><input type="checkbox" name="model-key" value="catboost" checked> CatBoost</label>
+                                    </div>
+                                </div>
+                                <div class="form-row" id="group-training-flags">
+                                    <label>Training Options</label>
+                                    <div class="option-grid">
+                                        <label class="check-tile"><input type="checkbox" id="flag-tune"> Tune</label>
+                                        <label class="check-tile"><input type="checkbox" id="flag-walk-forward"> Walk Forward</label>
+                                        <label class="check-tile"><input type="checkbox" id="flag-class-balance"> Class Balance</label>
+                                        <label class="check-tile"><input type="checkbox" id="flag-gpu"> GPU</label>
+                                    </div>
+                                </div>
+                                <div class="split-fields" id="group-tune-trials">
+                                    <div class="form-row">
+                                        <label for="input-tune-trials">Tune Trials</label>
+                                        <input type="number" id="input-tune-trials" min="1" step="1" value="20">
+                                    </div>
+                                </div>
+                                <div class="split-fields" id="group-execution-numbers">
+                                    <div class="form-row">
+                                        <label for="input-balance">Balance</label>
+                                        <input type="number" id="input-balance" min="1" step="100" value="1000">
+                                    </div>
+                                    <div class="form-row">
+                                        <label for="input-max-spread">Max Spread</label>
+                                        <input type="number" id="input-max-spread" min="0" step="1" value="252">
+                                    </div>
+                                </div>
+                                <div class="form-row" id="group-credentials">
+                                    <label for="select-credentials">Credentials</label>
+                                    <select id="select-credentials">
+                                        <option value="auto" selected>Auto by Symbol</option>
+                                        <option value="credentials_xauusd.yaml">credentials_xauusd.yaml</option>
+                                        <option value="credentials_ustec.yaml">credentials_ustec.yaml</option>
+                                        <option value="credentials.yaml">credentials.yaml</option>
+                                    </select>
+                                </div>
+                                <div class="form-row">
+                                    <label>Command Preview</label>
+                                    <pre class="command-preview" id="command-preview">Select an action to preview the command.</pre>
+                                </div>
+                                <div class="action-footer">
+                                    <button class="action-btn primary" id="btn-start-action"><i class="fa-solid fa-play"></i> Start Background Task</button>
+                                    <button class="action-btn danger" id="btn-stop-action" style="display:none;"><i class="fa-solid fa-stop"></i> Stop Active Process</button>
+                                </div>
+                                <div class="panel pad" style="background:#0c1218;">
+                                    <div class="meta">Dashboard tasks run through .venv. Paper/live use symbol, timeframe, credentials, and strategy mode from this form.</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="panel console">
+                            <div class="panel-head">
+                                <div class="panel-title"><i class="fa-solid fa-terminal info-text"></i> Live Session Console</div>
+                                <div class="meta" id="console-timer">No Active Session</div>
+                            </div>
+                            <div class="terminal" id="console-terminal-screen">
+                                <div class="terminal-line">[Idle] Launch a task to monitor process output.</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        const state = {
+            symbol: "XAUUSD",
+            timeframe: "M5",
+            tab: "overview",
+            logType: "main",
+            logAutoScroll: true,
+            isTaskRunning: false,
+            currentChart: 0,
+            logTimer: null,
+            consoleTimer: null,
+            statusTimer: null,
+            previewTimer: null
+        };
+
+        const charts = [
+            { file: "equity_curve.png", title: "Strategy Equity Growth" },
+            { file: "drawdown.png", title: "Underwater Drawdown Curve" },
+            { file: "monthly_returns.png", title: "Monthly Returns Heatmap" },
+            { file: "trade_distribution.png", title: "Trade Profit/Loss Distribution" },
+            { file: "cumulative_pnl.png", title: "Trade-by-Trade Cumulative PnL" },
+            { file: "precision_recall_curves.png", title: "Precision-Recall Curves" },
+            { file: "roc_curves.png", title: "ROC Evaluation Curves" },
+            { file: "feature_importance.png", title: "Model Feature Importance" }
+        ];
+
+        const titles = {
+            overview: "Performance Overview",
+            models: "Machine Learning Model Analysis",
+            config: "Bot Engine Configurations",
+            logs: "System Logs and Monitors",
+            control: "Background Control Center"
+        };
+
+        const $ = (id) => document.getElementById(id);
+        const contextQuery = () => `symbol=${encodeURIComponent(state.symbol)}&timeframe=${encodeURIComponent(state.timeframe)}`;
+        const money = (v) => Number(v || 0).toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 2 });
+        const pct = (v) => `${Number(v || 0).toFixed(2)}%`;
+        const num = (v, digits = 2) => Number(v || 0).toFixed(digits);
+        const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[c]));
+
+        document.addEventListener("DOMContentLoaded", init);
+
+        async function init() {
+            bindEvents();
+            setInterval(() => { $("sys-time").innerText = new Date().toTimeString().split(" ")[0]; }, 1000);
+            await loadContexts();
+            refreshAll();
+            state.statusTimer = setInterval(checkSystemStatus, 2500);
+            checkSystemStatus();
+        }
+
+        function bindEvents() {
+            document.querySelectorAll("[data-tab]").forEach(btn => btn.addEventListener("click", () => switchTab(btn.dataset.tab)));
+            $("context-select").addEventListener("change", (event) => {
+                const [symbol, timeframe] = event.target.value.split("|");
+                state.symbol = symbol;
+                state.timeframe = timeframe;
+                syncContextInputs();
+                refreshAll();
+            });
+            $("prev-chart").addEventListener("click", () => { state.currentChart = (state.currentChart - 1 + charts.length) % charts.length; updateChart(); });
+            $("next-chart").addEventListener("click", () => { state.currentChart = (state.currentChart + 1) % charts.length; updateChart(); });
+            $("carousel-img").addEventListener("click", () => {
+                const src = $("carousel-img").getAttribute("src");
+                if (src) window.open(src, "_blank");
+            });
+            document.querySelectorAll("[data-log]").forEach(btn => btn.addEventListener("click", () => loadLog(btn.dataset.log)));
+            $("log-search-input").addEventListener("input", filterLogs);
+            $("log-scroll-btn").addEventListener("click", toggleAutoScroll);
+            $("refresh-log").addEventListener("click", fetchLogs);
+            $("select-action-type").addEventListener("change", adjustActionForm);
+            $("btn-start-action").addEventListener("click", triggerAction);
+            $("btn-stop-action").addEventListener("click", stopActiveAction);
+            document.querySelectorAll("#view-control input, #view-control select").forEach(el => {
+                el.addEventListener("input", scheduleCommandPreview);
+                el.addEventListener("change", () => {
+                    if (["input-target-symbol", "select-timeframe"].includes(el.id)) {
+                        state.symbol = $("input-target-symbol").value.trim() || state.symbol;
+                        state.timeframe = $("select-timeframe").value;
+                        syncContextSelect();
+                        syncContextInputs();
+                        fetchSavedModels();
+                    }
+                    if (["select-action-type", "flag-tune"].includes(el.id)) {
+                        adjustActionForm();
+                    }
+                    scheduleCommandPreview();
+                });
+            });
+        }
+
+        async function loadContexts() {
+            const res = await fetch("/api/contexts");
+            const data = await res.json();
+            state.symbol = data.default.symbol || "XAUUSD";
+            state.timeframe = data.default.timeframe || "M5";
+            const select = $("context-select");
+            select.innerHTML = "";
+            data.contexts.forEach(ctx => {
+                const opt = document.createElement("option");
+                opt.value = `${ctx.symbol}|${ctx.timeframe}`;
+                const flags = [ctx.has_backtest ? "BT" : null, ctx.has_models ? "MDL" : null, ctx.has_logs ? "LOG" : null].filter(Boolean).join(" ");
+                opt.textContent = `${ctx.symbol} / ${ctx.timeframe}${flags ? "  [" + flags + "]" : ""}`;
+                select.appendChild(opt);
+            });
+            const defaultValue = `${state.symbol}|${state.timeframe}`;
+            if ([...select.options].some(opt => opt.value === defaultValue)) select.value = defaultValue;
+            else if (select.options.length) {
+                select.selectedIndex = 0;
+                const [symbol, timeframe] = select.value.split("|");
+                state.symbol = symbol;
+                state.timeframe = timeframe;
+            }
+            syncContextInputs();
+        }
+
+        function syncContextInputs() {
+            $("side-context").innerText = `${state.symbol}/${state.timeframe}`;
+            $("view-subtitle").innerText = `Selected context: ${state.symbol} / ${state.timeframe}`;
+            $("input-target-symbol").value = state.symbol;
+            $("select-timeframe").value = state.timeframe;
+        }
+
+        function syncContextSelect() {
+            const select = $("context-select");
+            const value = `${state.symbol}|${state.timeframe}`;
+            if ([...select.options].some(opt => opt.value === value)) {
+                select.value = value;
+            }
+        }
+
+        function refreshAll() {
+            syncContextInputs();
+            updateChart();
+            fetchSummaryStats();
+            fetchModelComparison();
+            fetchConfigData();
+            fetchSavedModels();
+            adjustActionForm();
+            if (state.tab === "logs") fetchLogs();
+        }
+
+        function switchTab(tab) {
+            state.tab = tab;
+            document.querySelectorAll("[data-tab]").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === tab));
+            document.querySelectorAll(".view").forEach(view => view.classList.remove("active"));
+            $(`view-${tab}`).classList.add("active");
+            $("view-title").innerText = titles[tab];
+            if (tab === "logs") startLogsStream(); else stopLogsStream();
+            if (tab === "control") startConsoleStream(); else stopConsoleStream();
+        }
+
+        function updateChart() {
+            const chart = charts[state.currentChart];
+            $("chart-title").innerText = chart.title;
+            $("chart-meta").innerText = `${state.symbol}/${state.timeframe} - ${chart.file}`;
+            const img = $("carousel-img");
+            img.style.display = "block";
+            img.src = `/charts/${encodeURIComponent(state.symbol)}/${encodeURIComponent(state.timeframe)}/${chart.file}?t=${Date.now()}`;
+            img.onerror = () => {
+                img.style.display = "none";
+                $("chart-stage").insertAdjacentHTML("beforeend", `<div class="empty" id="chart-empty">Chart not found for ${esc(state.symbol)} / ${esc(state.timeframe)}.</div>`);
+            };
+            const oldEmpty = $("chart-empty");
+            if (oldEmpty) oldEmpty.remove();
+        }
+
+        async function fetchSummaryStats() {
+            try {
+                const res = await fetch(`/api/summary?${contextQuery()}`);
+                const data = await res.json();
+                if (!data.available) {
+                    $("summary-source").innerText = "No report";
+                    $("summary-details").innerHTML = `<div class="empty">${esc(data.message || data.error || "No performance report found.")}</div>`;
+                    ["kpi-net-profit", "kpi-winrate", "kpi-drawdown", "kpi-sharpe"].forEach(id => $(id).innerText = id.includes("profit") ? "$0.00" : "0.00");
+                    return;
+                }
+                $("kpi-net-profit").innerText = money(data.net_profit);
+                $("kpi-net-profit").className = Number(data.net_profit) >= 0 ? "good-text" : "bad-text";
+                $("kpi-winrate").innerText = pct(data.winrate);
+                $("kpi-drawdown").innerText = pct(data.max_drawdown_pct);
+                $("kpi-sharpe").innerText = num(data.sharpe);
+                $("summary-source").innerText = `${data.source.file} - ${data.source.modified}`;
+                $("summary-details").innerHTML = [
+                    ["Initial Capital", money(data.initial_balance)],
+                    ["Ending Capital", money(data.ending_balance)],
+                    ["Profit Factor", num(data.profit_factor)],
+                    ["Total Trades", data.total_trades],
+                    ["Winning / Losing", `${data.winning_trades} / ${data.losing_trades}`],
+                    ["Average Win / Loss", `${money(data.average_win)} / ${money(data.average_loss)}`],
+                    ["TP / SL Executions", `${data.exit_tp_count} (${pct(data.exit_tp_pct)}) / ${data.exit_sl_count} (${pct(data.exit_sl_pct)})`],
+                    ["Average Hold", `${num(data.avg_hold_time, 1)} ${data.hold_time_unit || state.timeframe} bars`]
+                ].map(([label, value]) => `<div class="row"><span>${label}</span><span>${value}</span></div>`).join("");
+            } catch (err) {
+                $("summary-details").innerHTML = `<div class="empty">Failed to load summary: ${esc(err)}</div>`;
+            }
+        }
+
+        async function fetchModelComparison() {
+            const grid = $("models-list-grid");
+            try {
+                const res = await fetch(`/api/models?${contextQuery()}`);
+                const data = await res.json();
+                $("rec-model-name").innerText = data.recommended || "Unknown";
+                $("models-source").innerText = data.source ? `${data.source.file} - ${data.source.modified}` : "No report";
+                if (!data.available || !data.models.length) {
+                    grid.innerHTML = `<div class="panel pad empty">${esc(data.message || data.error || "No model comparison report found.")}</div>`;
+                    return;
+                }
+                grid.innerHTML = data.models.map(model => {
+                    const rec = model.name.toUpperCase() === String(data.recommended).toUpperCase();
+                    if (model.report_type === "timeframe_model_comparison") {
+                        return `<article class="model-card">
+                            <h3>${esc(model.name)} <span class="tag ${rec ? "rec" : ""}">${rec ? "Recommended" : (model.valid ? "Valid" : "Candidate")}</span></h3>
+                            ${metric("Trade Precision", model.trade_precision, "var(--green)")}
+                            ${metric("Winrate", model.winrate, "var(--blue)")}
+                            ${metricValue("Profit Factor", model.profit_factor)}
+                            ${metricValue("Trades", model.trades)}
+                            ${metricValue("Drawdown", `${Number(model.drawdown_pct || 0).toFixed(2)}%`)}
+                        </article>`;
+                    }
+                    return `<article class="model-card">
+                        <h3>${esc(model.name)} <span class="tag ${rec ? "rec" : ""}">${rec ? "Recommended" : "Candidate"}</span></h3>
+                        ${metric("Accuracy", model.accuracy, "var(--blue)")}
+                        ${metric("Trade Precision", model.trade_precision, "var(--green)")}
+                        ${metric("BUY Precision", model.precision_buy, "var(--amber)")}
+                        ${metric("SELL Precision", model.precision_sell, "var(--violet)")}
+                    </article>`;
+                }).join("");
+            } catch (err) {
+                grid.innerHTML = `<div class="panel pad empty">Failed to load models: ${esc(err)}</div>`;
+            }
+        }
+
+        function metric(label, value, color) {
+            const percent = Math.max(0, Math.min(100, Number(value || 0) * 100));
+            return `<div class="metric"><div><span>${label}</span><span>${percent.toFixed(2)}%</span></div><div class="bar"><span style="width:${percent}%;background:${color}"></span></div></div>`;
+        }
+
+        function metricValue(label, value) {
+            return `<div class="metric"><div><span>${label}</span><span>${esc(value)}</span></div></div>`;
+        }
+
+        async function fetchConfigData() {
+            const grid = $("config-settings-grid");
+            try {
+                const res = await fetch(`/api/config?${contextQuery()}`);
+                const data = await res.json();
+                const sections = [
+                    ["Symbol & Timeframe", data.symbol],
+                    ["Data Split", data.data],
+                    ["Technical Features", data.features],
+                    ["Risk Management", data.risk],
+                    ["Entry Filters", data.filters],
+                    ["MetaTrader 5", data.mt5],
+                    ["Artifact Directories", data.artifact_dirs]
+                ];
+                grid.innerHTML = sections.map(([title, dict]) => `<section class="panel">
+                    <div class="panel-head"><div class="panel-title">${esc(title)}</div></div>
+                    <div class="details">${Object.entries(dict).map(([key, val]) => `<div class="row"><span>${esc(titleCase(key))}</span><span>${esc(val)}</span></div>`).join("")}</div>
+                </section>`).join("");
+            } catch (err) {
+                grid.innerHTML = `<div class="panel pad empty">Failed to load config: ${esc(err)}</div>`;
+            }
+        }
+
+        function titleCase(text) {
+            return String(text).replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+        }
+
+        async function fetchSavedModels() {
+            const select = $("select-target-model");
+            try {
+                const res = await fetch(`/api/saved-models?${contextQuery()}`);
+                const data = await res.json();
+                select.innerHTML = "";
+                if (!data.models.length) {
+                    select.innerHTML = `<option value="">No saved models for ${state.symbol}/${state.timeframe}</option>`;
+                    return;
+                }
+                data.models.forEach(model => {
+                    const opt = document.createElement("option");
+                    opt.value = model.value;
+                    opt.textContent = model.label || `${model.name} (${model.size})`;
+                    select.appendChild(opt);
+                });
+                scheduleCommandPreview();
+            } catch (err) {
+                select.innerHTML = `<option value="">Failed to load models</option>`;
+                scheduleCommandPreview();
+            }
+        }
+
+        function startLogsStream() {
+            stopLogsStream();
+            fetchLogs();
+            state.logTimer = setInterval(fetchLogs, 2000);
+        }
+
+        function stopLogsStream() {
+            if (state.logTimer) clearInterval(state.logTimer);
+            state.logTimer = null;
+        }
+
+        function loadLog(type) {
+            state.logType = type;
+            document.querySelectorAll("[data-log]").forEach(btn => btn.classList.toggle("active", btn.dataset.log === type));
+            $("log-search-input").value = "";
+            fetchLogs();
+        }
+
+        function toggleAutoScroll() {
+            state.logAutoScroll = !state.logAutoScroll;
+            $("log-scroll-btn").classList.toggle("active", state.logAutoScroll);
+        }
+
+        async function fetchLogs() {
+            try {
+                const res = await fetch(`/api/logs/${state.logType}?${contextQuery()}`);
+                const data = await res.json();
+                $("log-source").innerText = data.source ? `${data.source.file} - ${data.source.modified}` : "No log file found";
+                const screen = $("terminal-screen");
+                const lines = data.lines || [];
+                screen.innerHTML = lines.length ? lines.map(line => `<div class="terminal-line ${lineClass(line)}">${esc(line)}</div>`).join("") : `<div class="terminal-line">No log lines.</div>`;
+                filterLogs();
+                if (state.logAutoScroll) screen.scrollTop = screen.scrollHeight;
+            } catch (err) {
+                $("terminal-screen").innerHTML = `<div class="terminal-line error">Failed to stream log file: ${esc(err)}</div>`;
+            }
+        }
+
+        function lineClass(line) {
+            if (/ERROR|Failed|Traceback/i.test(line)) return "error";
+            if (/WARNING|halted/i.test(line)) return "warning";
+            if (/Placed|closed|Trade/i.test(line)) return "trade";
+            if (/Signal|Confidence/i.test(line)) return "signal";
+            return "";
+        }
+
+        function filterLogs() {
+            const query = $("log-search-input").value.toLowerCase();
+            document.querySelectorAll("#terminal-screen .terminal-line").forEach(line => {
+                line.style.display = line.innerText.toLowerCase().includes(query) ? "block" : "none";
+            });
+        }
+
+        async function checkSystemStatus() {
+            try {
+                const res = await fetch("/api/status");
+                const data = await res.json();
+                const active = data.status === "Running Background Task";
+                state.isTaskRunning = active;
+                $("bot-status-dot").classList.toggle("busy", active);
+                $("bot-status-text").innerText = active ? `Task: ${String(data.active_task).toUpperCase()}` : "Bot: Idle";
+                $("btn-start-action").style.display = active ? "none" : "inline-flex";
+                $("btn-stop-action").style.display = active ? "inline-flex" : "none";
+                $("sys-mode").innerText = data.live_trading ? "MT5 Live Funds" : (data.paper_trading ? "MT5 Paper" : "Backtester");
+                $("sys-mode").className = data.live_trading ? "bad-text" : "info-text";
+            } catch (err) {
+                $("bot-status-text").innerText = "Status unavailable";
+            }
+        }
+
+        function adjustActionForm() {
+            const action = $("select-action-type").value;
+            const needsModel = ["backtest", "paper", "live"].includes(action);
+            const usesTimeframe = ["train", "compare", "backtest", "paper", "live"].includes(action);
+            const usesMonths = ["train", "compare", "backtest"].includes(action);
+            const usesModelKeys = ["train", "compare"].includes(action);
+            const usesTrainingFlags = ["train", "compare"].includes(action);
+            const usesTuneTrials = ["train", "compare"].includes(action) && $("flag-tune").checked;
+            const usesNumbers = ["compare", "backtest"].includes(action);
+            const usesCredentials = ["paper", "live"].includes(action);
+            const usesStrategyMode = ["compare", "backtest", "paper", "live"].includes(action);
+            $("group-select-model").style.display = needsModel ? "grid" : "none";
+            $("group-strategy-mode").style.display = usesStrategyMode ? "grid" : "none";
+            $("group-select-timeframe").style.display = usesTimeframe ? "grid" : "none";
+            $("group-select-months").style.display = usesMonths ? "grid" : "none";
+            $("group-model-keys").style.display = usesModelKeys ? "grid" : "none";
+            $("group-training-flags").style.display = usesTrainingFlags ? "grid" : "none";
+            $("group-tune-trials").style.display = usesTuneTrials ? "grid" : "none";
+            $("group-execution-numbers").style.display = usesNumbers ? "grid" : "none";
+            $("group-credentials").style.display = usesCredentials ? "grid" : "none";
+            $("btn-start-action").classList.toggle("live", action === "live");
+            scheduleCommandPreview();
+        }
+
+        function selectedModelKeys() {
+            return [...document.querySelectorAll("input[name='model-key']:checked")].map(input => input.value);
+        }
+
+        function controlPayload() {
+            return {
+                action: $("select-action-type").value,
+                model: $("select-target-model").value,
+                months: $("input-months-range").value,
+                symbol: $("input-target-symbol").value.trim(),
+                timeframe: $("select-timeframe").value,
+                models: selectedModelKeys(),
+                tune: $("flag-tune").checked,
+                tune_trials: $("input-tune-trials").value,
+                walk_forward: $("flag-walk-forward").checked,
+                class_balance: $("flag-class-balance").checked,
+                gpu: $("flag-gpu").checked,
+                balance: $("input-balance").value,
+                max_spread: $("input-max-spread").value,
+                credentials: $("select-credentials").value,
+                strategy_mode: $("select-strategy-mode").value
+            };
+        }
+
+        function scheduleCommandPreview() {
+            if (state.previewTimer) clearTimeout(state.previewTimer);
+            state.previewTimer = setTimeout(updateCommandPreview, 180);
+        }
+
+        async function updateCommandPreview() {
+            const payload = controlPayload();
+            if (!payload.symbol) {
+                $("command-preview").innerText = "Enter a symbol to preview the command.";
+                return;
+            }
+            try {
+                const res = await fetch("/api/control/preview", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.status !== "success") {
+                    $("command-preview").innerText = data.message || "Unable to build command.";
+                    return;
+                }
+                $("command-preview").innerText = data.command.map(part => /\s/.test(String(part)) ? `"${part}"` : part).join(" ");
+            } catch (err) {
+                $("command-preview").innerText = `Preview unavailable: ${err}`;
+            }
+        }
+
+        function startConsoleStream() {
+            stopConsoleStream();
+            fetchConsoleLogs();
+            state.consoleTimer = setInterval(fetchConsoleLogs, 1500);
+        }
+
+        function stopConsoleStream() {
+            if (state.consoleTimer) clearInterval(state.consoleTimer);
+            state.consoleTimer = null;
+        }
+
+        async function fetchConsoleLogs() {
+            try {
+                const res = await fetch("/api/logs/console");
+                const data = await res.json();
+                const lines = data.lines || [];
+                if (!lines.length && !state.isTaskRunning) return;
+                $("console-terminal-screen").innerHTML = lines.length ? lines.map(line => `<div class="terminal-line ${lineClass(line)}">${esc(line)}</div>`).join("") : `<div class="terminal-line">Waiting for process output...</div>`;
+                $("console-terminal-screen").scrollTop = $("console-terminal-screen").scrollHeight;
+                $("console-timer").innerText = state.isTaskRunning ? "SESSION ACTIVE" : "SESSION COMPLETED";
+                $("console-timer").className = state.isTaskRunning ? "warn-text" : "good-text";
+            } catch (err) {
+                $("console-terminal-screen").innerHTML = `<div class="terminal-line error">Failed to fetch console logs: ${esc(err)}</div>`;
+            }
+        }
+
+        async function triggerAction() {
+            const action = $("select-action-type").value;
+            const model = $("select-target-model").value;
+            const symbol = $("input-target-symbol").value.trim();
+            const timeframe = $("select-timeframe").value;
+            const months = $("input-months-range").value;
+            if (!symbol) {
+                alert("You must enter a trading symbol.");
+                return;
+            }
+            if (["backtest", "paper", "live"].includes(action) && !model) {
+                alert("You must select a trained model file.");
+                return;
+            }
+            if (action === "live" && !confirm("Live mode can place real-funds trades if credentials allow it. Continue?")) {
+                return;
+            }
+            $("console-terminal-screen").innerHTML = `<div class="terminal-line">Sending execution signal...</div>`;
+            try {
+                const res = await fetch("/api/control/start", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(controlPayload())
+                });
+                const data = await res.json();
+                if (data.status !== "success") {
+                    alert(`Error: ${data.message}`);
+                    return;
+                }
+                checkSystemStatus();
+                startConsoleStream();
+                switchTab("control");
+            } catch (err) {
+                alert(`Failed to contact engine controls: ${err}`);
+            }
+        }
+
+        async function stopActiveAction() {
+            if (!confirm("Stop the active background process?")) return;
+            const res = await fetch("/api/control/stop", { method: "POST" });
+            const data = await res.json();
+            if (data.status !== "success") alert(`Error: ${data.message}`);
+            checkSystemStatus();
+        }
+
+        adjustActionForm();
+    </script>
+</body>
+</html>

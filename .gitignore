@@ -1,0 +1,77 @@
+# MachineLearning TraderBot - Git ignore rules
+# Keep secrets, local environments, generated artifacts, and large datasets out of Git.
+
+# Secrets and local configuration
+credentials*.yaml
+!credentials.example.yaml
+.env
+.env.*
+*.key
+*.pem
+
+# Generated trading artifacts
+logs/
+reports/
+saved_models/
+catboost_info/
+
+# Market data snapshots and local caches
+data/**/*.csv
+data/**/*.parquet
+data/**/*.feather
+data/**/*.h5
+data/**/*.json
+*.sqlite
+*.sqlite3
+*.db
+
+# Backtest output files. Keep backtest/*.py source files tracked.
+backtest/**/*.png
+backtest/**/*.jpg
+backtest/**/*.jpeg
+backtest/**/*.pdf
+backtest/**/*.txt
+backtest/**/*.json
+backtest/**/*.csv
+
+# Serialized models and binary outputs
+*.joblib
+*.pkl
+*.pickle
+*.cbm
+*.onnx
+
+# Python caches and build outputs
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# Test, lint, type-check, and coverage caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Local virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# IDE, editor, and OS files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
