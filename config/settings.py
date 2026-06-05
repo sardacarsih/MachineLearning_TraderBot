@@ -224,7 +224,7 @@ class RiskConfig:
     # Maximum risk per trade (% of balance)
     max_risk_per_trade: float = 0.01  # 1%
     # Maximum daily drawdown (% of balance)
-    max_daily_drawdown: float = 0.05  # 5%
+    max_daily_drawdown: float = 0.20  # 20%
     # Consecutive losses before stopping
     max_consecutive_losses: int = 3
     # ATR multiplier for stop loss

@@ -157,7 +157,7 @@ class RiskManager:
 
     def check_daily_drawdown(self, current_balance: float) -> bool:
         """
-        Checks if the daily drawdown exceeds the limit (default 5%).
+        Checks if the daily drawdown exceeds the configured limit.
 
         Returns:
             True if drawdown is within limits, False if exceeded.
