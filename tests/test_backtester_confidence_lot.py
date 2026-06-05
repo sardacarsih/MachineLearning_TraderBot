@@ -1,3 +1,4 @@
+from copy import deepcopy
 import unittest
 
 import pandas as pd
@@ -12,6 +13,7 @@ class BacktesterConfidenceLotTests(unittest.TestCase):
         self._atr_sl_multiplier = config.risk.atr_sl_multiplier
         self._high_confidence_threshold = config.risk.high_confidence_threshold
         self._high_confidence_lot_multiplier = config.risk.high_confidence_lot_multiplier
+        self._confidence_config = deepcopy(config.confidence)
         self._max_open_positions = config.risk.max_open_positions
         self._spread_filter_enabled = config.filters.spread_filter_enabled
         self._volatility_filter_enabled = config.filters.volatility_filter_enabled
@@ -27,6 +29,7 @@ class BacktesterConfidenceLotTests(unittest.TestCase):
         config.risk.atr_sl_multiplier = 1.0
         config.risk.high_confidence_threshold = 0.70
         config.risk.high_confidence_lot_multiplier = 2.0
+        config.confidence.clear()
         config.risk.max_open_positions = 1
         config.filters.spread_filter_enabled = True
         config.filters.volatility_filter_enabled = True
@@ -43,6 +46,7 @@ class BacktesterConfidenceLotTests(unittest.TestCase):
         config.risk.atr_sl_multiplier = self._atr_sl_multiplier
         config.risk.high_confidence_threshold = self._high_confidence_threshold
         config.risk.high_confidence_lot_multiplier = self._high_confidence_lot_multiplier
+        config.confidence = self._confidence_config
         config.risk.max_open_positions = self._max_open_positions
         config.filters.spread_filter_enabled = self._spread_filter_enabled
         config.filters.volatility_filter_enabled = self._volatility_filter_enabled

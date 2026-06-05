@@ -33,7 +33,12 @@ class SignalGenerator:
             confidence_threshold: Confidence threshold for executing trades (default from config).
         """
         self.model = model
-        self.confidence_threshold = confidence_threshold or config.model.confidence_threshold
+        effective_confidence = config.resolve_confidence()
+        self.confidence_threshold = (
+            confidence_threshold
+            if confidence_threshold is not None
+            else effective_confidence.signal_threshold
+        )
         logger.info(f"SignalGenerator initialized with model '{model.model_name}' and confidence threshold {self.confidence_threshold:.2f}")
 
     def generate_signal(self, features_df: pd.DataFrame) -> Dict[str, Any]:

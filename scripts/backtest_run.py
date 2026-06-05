@@ -209,6 +209,7 @@ def main():
     
     signals = []
     confidences = []
+    confidence_threshold = config.resolve_confidence().signal_threshold
     
     if is_lstm:
         # Pre-populate warm-up bars as 'NO_TRADE'
@@ -224,10 +225,10 @@ def main():
             p_no_trade, p_buy, p_sell = p[0], p[1], p[2]
             action = "NO_TRADE"
             confidence = max(p_no_trade, p_buy, p_sell)
-            if p_buy >= config.model.confidence_threshold and p_buy > p_sell:
+            if p_buy >= confidence_threshold and p_buy > p_sell:
                 action = "BUY"
                 confidence = p_buy
-            elif p_sell >= config.model.confidence_threshold and p_sell > p_buy:
+            elif p_sell >= confidence_threshold and p_sell > p_buy:
                 action = "SELL"
                 confidence = p_sell
             signals.append(action)
@@ -239,10 +240,10 @@ def main():
             p_no_trade, p_buy, p_sell = p[0], p[1], p[2]
             action = "NO_TRADE"
             confidence = max(p_no_trade, p_buy, p_sell)
-            if p_buy >= config.model.confidence_threshold and p_buy > p_sell:
+            if p_buy >= confidence_threshold and p_buy > p_sell:
                 action = "BUY"
                 confidence = p_buy
-            elif p_sell >= config.model.confidence_threshold and p_sell > p_buy:
+            elif p_sell >= confidence_threshold and p_sell > p_buy:
                 action = "SELL"
                 confidence = p_sell
             signals.append(action)

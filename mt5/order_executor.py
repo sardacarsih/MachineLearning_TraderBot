@@ -335,7 +335,7 @@ class OrderExecutor:
 
     def open_position(
         self, symbol: str, order_type: str, lot: float,
-        sl: float, tp: float, comment: str = ""
+        sl: float, tp: float, comment: str = "", confidence: Optional[float] = None
     ) -> Tuple[bool, Union[int, str]]:
         """
         Open a market position (BUY or SELL).
@@ -347,6 +347,7 @@ class OrderExecutor:
             sl: Stop loss price.
             tp: Take profit price.
             comment: Optional trade comment.
+            confidence: Optional model confidence that created the trade.
 
         Returns:
             Tuple: (success: bool, ticket_or_error: int or str)
@@ -390,6 +391,7 @@ class OrderExecutor:
                 "sl": sl,
                 "tp": tp,
                 "comment": comment,
+                "confidence": confidence,
                 "time": time.time()
             }
             self._virtual_positions[ticket] = pos_dict

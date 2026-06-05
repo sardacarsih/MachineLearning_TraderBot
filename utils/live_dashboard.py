@@ -111,6 +111,7 @@ def normalize_position(position: Any) -> dict[str, Any]:
         "sl": _read_position_field(position, "sl", 0.0),
         "tp": _read_position_field(position, "tp", 0.0),
         "profit": _read_position_field(position, "profit", 0.0),
+        "confidence": _read_position_field(position, "confidence", None),
     }
 
 
@@ -461,6 +462,7 @@ class RichLiveDashboard:
         table = Table(expand=True, box=box.SIMPLE_HEAVY)
         table.add_column("Ticket", style="dim")
         table.add_column("Side")
+        table.add_column("Confidence", justify="right")
         table.add_column("Lots", justify="right")
         table.add_column("Open", justify="right")
         table.add_column("SL", justify="right")
@@ -468,7 +470,7 @@ class RichLiveDashboard:
         table.add_column("PnL", justify="right")
 
         if not self.state.positions:
-            table.add_row("-", Text("FLAT", style="bold cyan"), "-", "-", "-", "-", "-")
+            table.add_row("-", Text("FLAT", style="bold cyan"), "-", "-", "-", "-", "-", "-")
         else:
             for position in self.state.positions:
                 pos_type = str(position["type"]).upper()
@@ -476,6 +478,7 @@ class RichLiveDashboard:
                 table.add_row(
                     str(position["ticket"]),
                     Text(pos_type, style=status_style(pos_type)),
+                    format_number(position.get("confidence"), 4),
                     format_number(position["volume"], 2),
                     format_number(position["open_price"], 2),
                     format_number(position["sl"], 2),

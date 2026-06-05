@@ -117,6 +117,44 @@ def update_dashboard_signal_status(
     })
 
 
+def _position_ticket(position) -> int | None:
+    try:
+        raw_ticket = position.get("ticket") if isinstance(position, dict) else getattr(position, "ticket")
+        return int(raw_ticket)
+    except (TypeError, ValueError):
+        return None
+
+
+def enrich_positions_for_dashboard(positions, position_confidences: dict[int, float]):
+    enriched_positions = []
+    for position in positions or []:
+        ticket = _position_ticket(position)
+        confidence = position_confidences.get(ticket)
+        if isinstance(position, dict):
+            payload = dict(position)
+            payload.setdefault("confidence", confidence)
+        else:
+            payload = {
+                "ticket": getattr(position, "ticket", ""),
+                "type": getattr(position, "type", ""),
+                "volume": getattr(position, "volume", 0.0),
+                "price_open": getattr(position, "price_open", 0.0),
+                "sl": getattr(position, "sl", 0.0),
+                "tp": getattr(position, "tp", 0.0),
+                "profit": getattr(position, "profit", 0.0),
+                "confidence": confidence,
+            }
+        enriched_positions.append(payload)
+    return enriched_positions
+
+
+def calculate_paper_net_pnl(pos_type: str, volume: float, entry_price: float, close_price: float) -> float:
+    pnl_direction = 1 if str(pos_type).upper() == "BUY" else -1
+    gross_pnl = float(volume) * config.symbol.contract_size * (float(close_price) - float(entry_price)) * pnl_direction
+    commission = float(volume) * config.backtest.commission_per_lot
+    return gross_pnl - commission
+
+
 def account_login_matches(account_info) -> bool:
     """Validate that MT5 is connected to the configured account."""
     expected_login = int(mt5_config.login or 0)
@@ -267,6 +305,7 @@ def run_trading_bot(
     last_bar_time = None
     last_signal_key = None
     last_trade_time = None
+    position_confidences: dict[int, float] = {}
     loop_interval = 1.0  # Run real-time monitoring loop every 1 second
     raw_window = feature_window_size(include_higher_timeframe)
     
@@ -306,6 +345,12 @@ def run_trading_bot(
             if dashboard:
                 dashboard.update_account(acct_summary)
 
+            if not mt5_config.paper_trading:
+                risk_manager.sync_closed_trades(
+                    account_manager.get_trade_history(days=1),
+                    magic_number=mt5_config.magic_number,
+                )
+
             # Reset daily risk limits on calendar day changes (adjust for 1s loop)
             now_utc = datetime.utcnow()
             if now_utc.hour == 0 and now_utc.minute == 0 and now_utc.second < 2:
@@ -316,7 +361,7 @@ def run_trading_bot(
             # ----------------------------------------------------
             open_positions = order_executor.get_open_positions(config.symbol.symbol)
             if dashboard:
-                dashboard.update_positions(open_positions)
+                dashboard.update_positions(enrich_positions_for_dashboard(open_positions, position_confidences))
             
             # Fetch latest tick prices
             tick = connector._mt5.symbol_info_tick(config.symbol.symbol) if connector.is_connected() else None
@@ -368,22 +413,42 @@ def run_trading_bot(
                         if pos_type == "BUY":
                             if tick.bid <= sl:
                                 logger.info(f"[PAPER] SL hit for ticket {ticket}")
-                                order_executor.close_position(ticket, exit_reason="SL")
-                                risk_manager.update_trade_result(vol * 100 * (sl - entry_p))
+                                net_pnl = calculate_paper_net_pnl(pos_type, vol, entry_p, sl)
+                                if order_executor.close_position(ticket, exit_reason="SL"):
+                                    risk_manager.update_trade_result(
+                                        net_pnl,
+                                        magic_number=mt5_config.magic_number,
+                                        trade_id=f"paper:{ticket}:SL",
+                                    )
                             elif tick.bid >= tp:
                                 logger.info(f"[PAPER] TP hit for ticket {ticket}")
-                                order_executor.close_position(ticket, exit_reason="TP")
-                                risk_manager.update_trade_result(vol * 100 * (tp - entry_p))
+                                net_pnl = calculate_paper_net_pnl(pos_type, vol, entry_p, tp)
+                                if order_executor.close_position(ticket, exit_reason="TP"):
+                                    risk_manager.update_trade_result(
+                                        net_pnl,
+                                        magic_number=mt5_config.magic_number,
+                                        trade_id=f"paper:{ticket}:TP",
+                                    )
                         # Check SELL exits
                         else:
                             if tick.ask >= sl:
                                 logger.info(f"[PAPER] SL hit for ticket {ticket}")
-                                order_executor.close_position(ticket, exit_reason="SL")
-                                risk_manager.update_trade_result(vol * 100 * (entry_p - sl))
+                                net_pnl = calculate_paper_net_pnl(pos_type, vol, entry_p, sl)
+                                if order_executor.close_position(ticket, exit_reason="SL"):
+                                    risk_manager.update_trade_result(
+                                        net_pnl,
+                                        magic_number=mt5_config.magic_number,
+                                        trade_id=f"paper:{ticket}:SL",
+                                    )
                             elif tick.ask <= tp:
                                 logger.info(f"[PAPER] TP hit for ticket {ticket}")
-                                order_executor.close_position(ticket, exit_reason="TP")
-                                risk_manager.update_trade_result(vol * 100 * (entry_p - tp))
+                                net_pnl = calculate_paper_net_pnl(pos_type, vol, entry_p, tp)
+                                if order_executor.close_position(ticket, exit_reason="TP"):
+                                    risk_manager.update_trade_result(
+                                        net_pnl,
+                                        magic_number=mt5_config.magic_number,
+                                        trade_id=f"paper:{ticket}:TP",
+                                    )
 
             # ----------------------------------------------------
             # Candle Close & Signal Evaluation (Throttled Check)
@@ -423,7 +488,7 @@ def run_trading_bot(
                         dashboard.update_candle(closed_bar_time)
 
                     # 1. Run Risk checks before checking entry signals
-                    if not risk_manager.can_trade(balance):
+                    if not risk_manager.can_trade(balance, magic_number=mt5_config.magic_number):
                         reason = getattr(risk_manager, "last_block_reason", "") or "Trading halted by RiskManager limits"
                         logger.warning(reason)
                         update_dashboard_signal_status(
@@ -578,14 +643,17 @@ def run_trading_bot(
                                 lot=lot_size,
                                 sl=sl_price,
                                 tp=tp_price,
-                                comment=format_order_comment(config.symbol.timeframe, strategy_mode, model.model_name)
+                                comment=format_order_comment(config.symbol.timeframe, strategy_mode, model.model_name),
+                                confidence=confidence,
                             )
                             
                             if success:
                                 last_signal_key = signal_key
                                 last_trade_time = datetime.utcnow()
+                                ticket = int(ticket_or_err)
+                                position_confidences[ticket] = float(confidence)
                                 TradingLogger.trade_log(
-                                    f"[SIGNAL TRADE LINK] Ticket: {ticket_or_err} | "
+                                    f"[SIGNAL TRADE LINK] Ticket: {ticket} | "
                                     f"Action: {action} | Confidence: {confidence:.4f} | "
                                     f"SignalTime: {closed_bar_time} | Entry: {closed_bar['close']:.5f} | "
                                     f"SL: {sl_price:.5f} | TP: {tp_price:.5f}"

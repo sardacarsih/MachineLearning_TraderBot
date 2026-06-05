@@ -6,6 +6,7 @@ Controls position sizing, daily drawdown, consecutive losses, and
 stop-loss / take-profit calculations based on ATR and config.
 """
 
+from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional, Union
 
 from config.settings import config
@@ -25,6 +26,7 @@ class RiskManager:
         self.daily_pnl: float = 0.0
         self.daily_trade_count: int = 0
         self.consecutive_losses: int = 0
+        self._loss_cooldowns: Dict[int, Dict[str, Any]] = {}
         self.start_of_day_balance: Optional[float] = None
         self.last_block_reason: str = ""
         logger.info("RiskManager initialized")
@@ -45,22 +47,125 @@ class RiskManager:
         self.last_block_reason = ""
         logger.info(f"Daily risk metrics reset. Starting balance: {current_balance:.2f}")
 
-    def update_trade_result(self, pnl: float):
+    @staticmethod
+    def _magic_key(magic_number: Optional[int]) -> int:
+        try:
+            return int(magic_number or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    @staticmethod
+    def _trade_close_id(trade: Dict[str, Any]) -> str:
+        return "|".join(
+            str(trade.get(key, ""))
+            for key in ("ticket", "order", "position_id", "time")
+        )
+
+    @staticmethod
+    def _trade_closed_at(trade: Dict[str, Any]) -> Optional[datetime]:
+        value = trade.get("time")
+        if isinstance(value, datetime):
+            return value
+        try:
+            return datetime.fromisoformat(str(value))
+        except (TypeError, ValueError):
+            return None
+
+    def _cooldown_state(self, magic_number: Optional[int]) -> Dict[str, Any]:
+        magic = self._magic_key(magic_number)
+        if magic not in self._loss_cooldowns:
+            self._loss_cooldowns[magic] = {
+                "consecutive_losses": 0,
+                "cooldown_until": None,
+                "processed_close_ids": set(),
+            }
+        return self._loss_cooldowns[magic]
+
+    def update_trade_result(
+        self,
+        pnl: float,
+        magic_number: Optional[int] = None,
+        trade_id: Optional[str] = None,
+        closed_at: Optional[datetime] = None,
+    ) -> bool:
         """
         Update risk counters after a trade closes.
 
         Args:
             pnl: Realized profit or loss in quote currency.
+            magic_number: MT5 magic number that owns the closed trade.
+            trade_id: Optional stable close identifier to prevent double-counting.
+            closed_at: Optional close time used as the cooldown start.
+
+        Returns:
+            True if the trade result was applied, False if it was a duplicate.
         """
+        state = self._cooldown_state(magic_number)
+        if trade_id:
+            processed_close_ids = state["processed_close_ids"]
+            if trade_id in processed_close_ids:
+                return False
+            processed_close_ids.add(trade_id)
+
         self.daily_pnl += pnl
         self.daily_trade_count += 1
 
         if pnl < 0:
             self.consecutive_losses += 1
-            logger.info(f"Trade lost: {pnl:.2f}. Consecutive losses: {self.consecutive_losses}")
+            state["consecutive_losses"] += 1
+            logger.info(
+                f"Trade lost: {pnl:.2f}. Magic={self._magic_key(magic_number)} "
+                f"consecutive losses: {state['consecutive_losses']}"
+            )
+            if (
+                config.risk.consecutive_loss_cooldown_enabled
+                and state["consecutive_losses"] >= config.risk.consecutive_loss_cooldown_count
+            ):
+                cooldown_start = closed_at or datetime.now()
+                state["cooldown_until"] = cooldown_start + timedelta(
+                    hours=float(config.risk.consecutive_loss_cooldown_hours)
+                )
+                logger.warning(
+                    "Consecutive-loss cooldown started: "
+                    f"magic={self._magic_key(magic_number)}, losses={state['consecutive_losses']}, "
+                    f"until={state['cooldown_until'].strftime('%Y-%m-%d %H:%M:%S')}"
+                )
         else:
             self.consecutive_losses = 0
-            logger.info(f"Trade won: {pnl:.2f}. Consecutive losses reset to 0")
+            state["consecutive_losses"] = 0
+            logger.info(
+                f"Trade won/breakeven: {pnl:.2f}. Magic={self._magic_key(magic_number)} "
+                "consecutive losses reset to 0"
+            )
+        return True
+
+    def sync_closed_trades(
+        self,
+        trades: List[Dict[str, Any]],
+        magic_number: Optional[int] = None,
+    ) -> int:
+        """Apply closed MT5 deals to the consecutive-loss cooldown state."""
+        applied = 0
+        sorted_trades = sorted(trades or [], key=lambda trade: str(trade.get("time", "")))
+        for trade in sorted_trades:
+            if str(trade.get("entry", "")).upper() != "OUT":
+                continue
+            trade_magic = self._magic_key(trade.get("magic"))
+            if magic_number is not None and trade_magic != self._magic_key(magic_number):
+                continue
+            pnl = (
+                float(trade.get("profit", 0.0) or 0.0)
+                + float(trade.get("commission", 0.0) or 0.0)
+                + float(trade.get("swap", 0.0) or 0.0)
+            )
+            if self.update_trade_result(
+                pnl,
+                magic_number=trade_magic,
+                trade_id=self._trade_close_id(trade),
+                closed_at=self._trade_closed_at(trade),
+            ):
+                applied += 1
+        return applied
 
     def calculate_position_size(
         self,
@@ -136,8 +241,9 @@ class RiskManager:
         if confidence is None:
             return lot_size
 
-        threshold = config.risk.high_confidence_threshold
-        multiplier = config.risk.high_confidence_lot_multiplier
+        confidence_config = config.resolve_confidence()
+        threshold = confidence_config.high_confidence_threshold
+        multiplier = confidence_config.high_confidence_lot_multiplier
         if confidence <= threshold or multiplier <= 1.0:
             return lot_size
 
@@ -189,15 +295,34 @@ class RiskManager:
 
         return True
 
-    def check_consecutive_losses(self) -> bool:
-        """Checks if consecutive losses exceed the limit (default 3)."""
-        if self.consecutive_losses >= config.risk.max_consecutive_losses:
-            self.last_block_reason = (
-                f"Consecutive loss limit exceeded: {self.consecutive_losses} losses "
-                f"(Limit: {config.risk.max_consecutive_losses})"
-            )
-            logger.warning(self.last_block_reason)
-            return False
+    def check_consecutive_losses(
+        self,
+        magic_number: Optional[int] = None,
+        now: Optional[datetime] = None,
+    ) -> bool:
+        """Checks if the active magic number is in a consecutive-loss cooldown."""
+        if not config.risk.consecutive_loss_cooldown_enabled:
+            return True
+
+        state = self._cooldown_state(magic_number)
+        cooldown_until = state.get("cooldown_until")
+        if cooldown_until is not None:
+            current_time = now or datetime.now()
+            if current_time < cooldown_until:
+                remaining = cooldown_until - current_time
+                remaining_minutes = max(1, int(remaining.total_seconds() // 60))
+                hours, minutes = divmod(remaining_minutes, 60)
+                self.last_block_reason = (
+                    "Consecutive-loss cooldown active: "
+                    f"magic={self._magic_key(magic_number)}, "
+                    f"losses={state['consecutive_losses']}, "
+                    f"remaining={hours}h {minutes}m"
+                )
+                logger.warning(self.last_block_reason)
+                return False
+            state["cooldown_until"] = None
+            state["consecutive_losses"] = 0
+
         return True
 
     def calculate_sl(self, entry_price: float, atr: float, direction: str) -> float:
@@ -279,7 +404,12 @@ class RiskManager:
 
         return None
 
-    def can_trade(self, current_balance: float) -> bool:
+    def can_trade(
+        self,
+        current_balance: float,
+        magic_number: Optional[int] = None,
+        now: Optional[datetime] = None,
+    ) -> bool:
         """
         Master check to determine if trading is allowed based on risk metrics.
         """
@@ -287,7 +417,7 @@ class RiskManager:
         if not self.check_daily_drawdown(current_balance):
             return False
 
-        if not self.check_consecutive_losses():
+        if not self.check_consecutive_losses(magic_number, now=now):
             return False
 
         return True

@@ -199,7 +199,7 @@ $prioritySpecs = @(
         Symbol = "XAUUSD"
         Timeframe = "M1"
         Model = "saved_models\XAUUSD\M1\candidate_lightgbm_model"
-        Credentials = "credentials_xauusd_m1_trial7.yaml"
+        Credentials = "credentials_xauusd_m1.yaml"
         Reason = "PF 2.19, DD 13.05%, winrate 66.88%, trades 2962"
     },
     @{

@@ -7,7 +7,7 @@ All trading parameters, ML hyperparameters, risk limits, and session settings.
 
 import os
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from datetime import time
 
 TIMEFRAME_MINUTES = {
@@ -227,6 +227,12 @@ class RiskConfig:
     max_daily_drawdown: float = 0.20  # 20%
     # Consecutive losses before stopping
     max_consecutive_losses: int = 3
+    # Enable timed cooldown after consecutive net losses. Keep enabled for live safety.
+    consecutive_loss_cooldown_enabled: bool = True
+    # Consecutive net losses before a timed cooldown starts.
+    consecutive_loss_cooldown_count: int = 3
+    # Hours to block new entries after the consecutive-loss cooldown starts.
+    consecutive_loss_cooldown_hours: float = 4.0
     # ATR multiplier for stop loss
     atr_sl_multiplier: float = 1.5
     # ATR multiplier for take profit (1.5x of SL = RR 1:1.5)
@@ -247,6 +253,101 @@ class RiskConfig:
     high_confidence_threshold: float = 0.70
     # Lot multiplier applied after risk sizing for high-confidence signals.
     high_confidence_lot_multiplier: float = 2.0
+
+
+# ============================================
+# CONFIDENCE OVERRIDE CONFIGURATION
+# ============================================
+@dataclass
+class ConfidenceThresholdOverride:
+    """Optional confidence values for one fallback level."""
+    signal_threshold: Optional[float] = None
+    high_confidence_threshold: Optional[float] = None
+    high_confidence_lot_multiplier: Optional[float] = None
+
+    @classmethod
+    def from_mapping(cls, values: Optional[Dict[str, Any]]) -> "ConfidenceThresholdOverride":
+        values = values or {}
+        return cls(
+            signal_threshold=(
+                float(values["signal_threshold"])
+                if "signal_threshold" in values and values["signal_threshold"] is not None
+                else None
+            ),
+            high_confidence_threshold=(
+                float(values["high_confidence_threshold"])
+                if "high_confidence_threshold" in values and values["high_confidence_threshold"] is not None
+                else None
+            ),
+            high_confidence_lot_multiplier=(
+                float(values["high_confidence_lot_multiplier"])
+                if "high_confidence_lot_multiplier" in values and values["high_confidence_lot_multiplier"] is not None
+                else None
+            ),
+        )
+
+    def merge(self, other: "ConfidenceThresholdOverride") -> "ConfidenceThresholdOverride":
+        return ConfidenceThresholdOverride(
+            signal_threshold=(
+                other.signal_threshold
+                if other.signal_threshold is not None
+                else self.signal_threshold
+            ),
+            high_confidence_threshold=(
+                other.high_confidence_threshold
+                if other.high_confidence_threshold is not None
+                else self.high_confidence_threshold
+            ),
+            high_confidence_lot_multiplier=(
+                other.high_confidence_lot_multiplier
+                if other.high_confidence_lot_multiplier is not None
+                else self.high_confidence_lot_multiplier
+            ),
+        )
+
+
+@dataclass
+class ResolvedConfidenceThresholds:
+    """Effective confidence thresholds for the active symbol/timeframe."""
+    signal_threshold: float
+    high_confidence_threshold: float
+    high_confidence_lot_multiplier: float
+
+
+@dataclass
+class ConfidenceConfig:
+    """Per-symbol/per-timeframe confidence override table."""
+    default: ConfidenceThresholdOverride = field(default_factory=ConfidenceThresholdOverride)
+    by_timeframe: Dict[str, ConfidenceThresholdOverride] = field(default_factory=dict)
+    by_symbol: Dict[str, ConfidenceThresholdOverride] = field(default_factory=dict)
+    by_symbol_timeframe: Dict[str, Dict[str, ConfidenceThresholdOverride]] = field(default_factory=dict)
+
+    def clear(self):
+        self.default = ConfidenceThresholdOverride()
+        self.by_timeframe.clear()
+        self.by_symbol.clear()
+        self.by_symbol_timeframe.clear()
+
+    def load_from_mapping(self, data: Optional[Dict[str, Any]]):
+        """Replace confidence override tables from YAML-style data."""
+        self.clear()
+        data = data or {}
+        self.default = ConfidenceThresholdOverride.from_mapping(data.get("default"))
+
+        for timeframe, values in (data.get("by_timeframe") or {}).items():
+            tf = normalize_timeframe(timeframe)
+            self.by_timeframe[tf] = ConfidenceThresholdOverride.from_mapping(values)
+
+        for symbol, values in (data.get("by_symbol") or {}).items():
+            sym = str(symbol).strip().upper()
+            self.by_symbol[sym] = ConfidenceThresholdOverride.from_mapping(values)
+
+        for symbol, timeframe_map in (data.get("by_symbol_timeframe") or {}).items():
+            sym = str(symbol).strip().upper()
+            self.by_symbol_timeframe[sym] = {}
+            for timeframe, values in (timeframe_map or {}).items():
+                tf = normalize_timeframe(timeframe)
+                self.by_symbol_timeframe[sym][tf] = ConfidenceThresholdOverride.from_mapping(values)
 
 
 # ============================================
@@ -353,6 +454,7 @@ class TradingConfig:
     sessions: SessionConfig = field(default_factory=SessionConfig)
     model: ModelConfig = field(default_factory=ModelConfig)
     risk: RiskConfig = field(default_factory=RiskConfig)
+    confidence: ConfidenceConfig = field(default_factory=ConfidenceConfig)
     filters: FilterConfig = field(default_factory=FilterConfig)
     backtest: BacktestConfig = field(default_factory=BacktestConfig)
     paths: PathConfig = field(default_factory=PathConfig)
@@ -362,6 +464,35 @@ class TradingConfig:
     strategy_mode: str = "hybrid"  # "ml" or "hybrid"
     # Debug mode
     debug: bool = False
+
+    def resolve_confidence(
+        self,
+        symbol: Optional[str] = None,
+        timeframe: Optional[str] = None,
+    ) -> ResolvedConfidenceThresholds:
+        """Resolve confidence values using symbol/timeframe fallback precedence."""
+        sym = str(symbol or self.symbol.symbol).strip().upper()
+        tf = normalize_timeframe(timeframe or self.symbol.timeframe)
+        resolved = ConfidenceThresholdOverride(
+            signal_threshold=self.model.confidence_threshold,
+            high_confidence_threshold=self.risk.high_confidence_threshold,
+            high_confidence_lot_multiplier=self.risk.high_confidence_lot_multiplier,
+        )
+
+        resolved = resolved.merge(self.confidence.default)
+        if tf in self.confidence.by_timeframe:
+            resolved = resolved.merge(self.confidence.by_timeframe[tf])
+        if sym in self.confidence.by_symbol:
+            resolved = resolved.merge(self.confidence.by_symbol[sym])
+        symbol_timeframes = self.confidence.by_symbol_timeframe.get(sym, {})
+        if tf in symbol_timeframes:
+            resolved = resolved.merge(symbol_timeframes[tf])
+
+        return ResolvedConfidenceThresholds(
+            signal_threshold=float(resolved.signal_threshold),
+            high_confidence_threshold=float(resolved.high_confidence_threshold),
+            high_confidence_lot_multiplier=float(resolved.high_confidence_lot_multiplier),
+        )
 
     def set_timeframe(self, timeframe: str):
         """Apply a timeframe label to the active symbol configuration."""

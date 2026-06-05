@@ -15,6 +15,7 @@ from utils.live_dashboard import (
 )
 from utils.logger import TradingLogger, setup_logging
 from scripts.live_trade import MAX_ORDER_COMMENT_LEN, format_order_comment
+from mt5.paper_db import PaperDBManager
 
 
 class LiveDashboardFormattingTests(unittest.TestCase):
@@ -40,6 +41,7 @@ class LiveDashboardFormattingTests(unittest.TestCase):
             "open_price": 2000.0,
             "sl": 1990.0,
             "tp": 2020.0,
+            "confidence": 0.71,
         }
         live_position = SimpleNamespace(
             ticket=101,
@@ -49,13 +51,22 @@ class LiveDashboardFormattingTests(unittest.TestCase):
             sl=2000.0,
             tp=2030.0,
             profit=-2.5,
+            confidence=0.62,
         )
 
-        self.assertEqual(normalize_position(paper_position)["type"], "BUY")
+        normalized_paper = normalize_position(paper_position)
+        self.assertEqual(normalized_paper["type"], "BUY")
+        self.assertEqual(normalized_paper["confidence"], 0.71)
         normalized_live = normalize_position(live_position)
         self.assertEqual(normalized_live["type"], "SELL")
         self.assertEqual(normalized_live["open_price"], 2010.0)
         self.assertEqual(normalized_live["profit"], -2.5)
+        self.assertEqual(normalized_live["confidence"], 0.62)
+
+    def test_position_normalization_defaults_missing_confidence_to_none(self):
+        normalized = normalize_position({"ticket": 102, "type": "BUY"})
+
+        self.assertIsNone(normalized["confidence"])
 
     def test_trend_derivation_uses_runtime_base_timeframe_and_htf_features(self):
         trends = derive_timeframe_trends(
@@ -104,7 +115,15 @@ class RichLiveDashboardStateTests(unittest.TestCase):
         self.assertEqual(dashboard.state.timeframe_trends["M5"]["label"], "BEAR")
         self.assertEqual(dashboard.state.timeframe_trends["H1"]["label"], "BULL")
         dashboard.update_positions([
-            {"ticket": 1, "type": "BUY", "volume": 0.1, "open_price": 2320.0, "sl": 2310.0, "tp": 2340.0}
+            {
+                "ticket": 1,
+                "type": "BUY",
+                "volume": 0.1,
+                "open_price": 2320.0,
+                "sl": 2310.0,
+                "tp": 2340.0,
+                "confidence": 0.55,
+            }
         ])
 
         for action in ("BUY", "SELL", "NO_TRADE"):
@@ -141,6 +160,29 @@ class RichLiveDashboardStateTests(unittest.TestCase):
 
         self.assertLessEqual(len(comment), MAX_ORDER_COMMENT_LEN)
         self.assertTrue(comment.startswith("M15_HYBRID_"))
+
+    def test_paper_db_persists_position_confidence(self):
+        with tempfile.TemporaryDirectory(prefix="paper-db-confidence-") as tmp:
+            db = PaperDBManager(str(Path(tmp) / "paper_trading.db"))
+            db.save_position(
+                {
+                    "ticket": 1,
+                    "symbol": "XAUUSD",
+                    "type": "BUY",
+                    "volume": 0.1,
+                    "open_price": 2320.0,
+                    "sl": 2310.0,
+                    "tp": 2340.0,
+                    "comment": "test",
+                    "confidence": 0.73,
+                    "time": 1.0,
+                }
+            )
+
+            positions = db.get_positions()
+
+        self.assertEqual(len(positions), 1)
+        self.assertEqual(positions[0]["confidence"], 0.73)
 
 
 class LoggerQuietConsoleTests(unittest.TestCase):

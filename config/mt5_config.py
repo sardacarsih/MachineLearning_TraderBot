@@ -80,6 +80,19 @@ class MT5Config:
 mt5_config = MT5Config()
 
 
+def _parse_bool(value) -> bool:
+    """Parse YAML/env-style boolean values without treating "false" as truthy."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"1", "true", "yes", "y", "on"}:
+            return True
+        if normalized in {"0", "false", "no", "n", "off"}:
+            return False
+    return bool(value)
+
+
 def load_mt5_config_from_env() -> MT5Config:
     """
     Load MT5 configuration from environment variables.
@@ -179,3 +192,15 @@ def apply_runtime_config_from_yaml(filepath: str) -> None:
         config.risk.high_confidence_threshold = float(risk_data["high_confidence_threshold"])
     if "high_confidence_lot_multiplier" in risk_data:
         config.risk.high_confidence_lot_multiplier = float(risk_data["high_confidence_lot_multiplier"])
+    if "consecutive_loss_cooldown_enabled" in risk_data:
+        config.risk.consecutive_loss_cooldown_enabled = _parse_bool(
+            risk_data["consecutive_loss_cooldown_enabled"]
+        )
+    if "consecutive_loss_cooldown_count" in risk_data:
+        config.risk.consecutive_loss_cooldown_count = int(risk_data["consecutive_loss_cooldown_count"])
+    if "consecutive_loss_cooldown_hours" in risk_data:
+        config.risk.consecutive_loss_cooldown_hours = float(risk_data["consecutive_loss_cooldown_hours"])
+
+    confidence_data = data.get("confidence")
+    if confidence_data is not None:
+        config.confidence.load_from_mapping(confidence_data)

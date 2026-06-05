@@ -15,6 +15,16 @@ from utils.logger import get_logger
 logger = get_logger()
 
 
+class ClosingSQLiteConnection(sqlite3.Connection):
+    """SQLite connection that closes when used as a context manager."""
+
+    def __exit__(self, exc_type, exc, tb):
+        try:
+            return super().__exit__(exc_type, exc, tb)
+        finally:
+            self.close()
+
+
 class PaperDBManager:
     """
     Manages persistence of paper trading accounts and open positions using SQLite.
@@ -33,7 +43,7 @@ class PaperDBManager:
 
     def _connect(self) -> sqlite3.Connection:
         """Create a new database connection."""
-        conn = sqlite3.connect(self.db_path, timeout=10.0)
+        conn = sqlite3.connect(self.db_path, timeout=10.0, factory=ClosingSQLiteConnection)
         conn.row_factory = sqlite3.Row
         return conn
 
@@ -62,9 +72,16 @@ class PaperDBManager:
                         sl REAL,
                         tp REAL,
                         comment TEXT,
+                        confidence REAL,
                         time REAL
                     )
                 """)
+                columns = {
+                    row["name"]
+                    for row in conn.execute("PRAGMA table_info(positions)").fetchall()
+                }
+                if "confidence" not in columns:
+                    conn.execute("ALTER TABLE positions ADD COLUMN confidence REAL")
                 conn.commit()
         except Exception as e:
             logger.error(f"Error initialising Paper Trading SQLite DB: {e}", exc_info=True)
@@ -125,6 +142,7 @@ class PaperDBManager:
                         "sl": row["sl"],
                         "tp": row["tp"],
                         "comment": row["comment"],
+                        "confidence": row["confidence"],
                         "time": row["time"]
                     })
                 return positions
@@ -138,12 +156,13 @@ class PaperDBManager:
             with self._connect() as conn:
                 conn.execute(
                     """
-                    INSERT OR REPLACE INTO positions (ticket, symbol, type, volume, open_price, sl, tp, comment, time)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT OR REPLACE INTO positions (ticket, symbol, type, volume, open_price, sl, tp, comment, confidence, time)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         pos["ticket"], pos["symbol"], pos["type"], pos["volume"],
-                        pos["open_price"], pos["sl"], pos["tp"], pos["comment"], pos["time"]
+                        pos["open_price"], pos["sl"], pos["tp"], pos["comment"],
+                        pos.get("confidence"), pos["time"]
                     )
                 )
                 conn.commit()
